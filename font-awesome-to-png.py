@@ -13,7 +13,7 @@
 import sys, argparse, re
 from os import path, access, R_OK
 from PIL import Image, ImageFont, ImageDraw
-
+import re
 # Support Unicode literals with both Python 2 and 3
 if sys.version < '3':
     import codecs
@@ -562,9 +562,9 @@ def export_icon(icon, size, filename, font, color):
     font = ImageFont.truetype(font, size)
 
     # Determine the dimensions of the icon
-    width,height = draw.textsize(icons[icon], font=font)
+    width,height = draw.textsize(icon, font=font)
 
-    draw.text(((size - width) / 2, (size - height) / 2), icons[icon],
+    draw.text(((size - width) / 2, (size - height) / 2), icon,
             font=font, fill=color)
 
     # Get bounding box
@@ -575,7 +575,7 @@ def export_icon(icon, size, filename, font, color):
     drawmask = ImageDraw.Draw(imagemask)
 
     # Draw the icon on the mask
-    drawmask.text(((size - width) / 2, (size - height) / 2), icons[icon],
+    drawmask.text(((size - width) / 2, (size - height) / 2), icon,
         font=font, fill=255)
 
     # Create a solid color image and apply the mask
@@ -610,8 +610,7 @@ class LoadCSSAction(argparse.Action):
         try:
             stylesheet = parser.parse_stylesheet_file(filename)
         except IOError:
-            print >> sys.stderr, ("Error: CSS file (%s) can't be opened"
-                % (filename))
+            print("Error: CSS file ({}) can't be opened".format(filename), file=sys.stderr)
             exit(1)
 
         is_icon = re.compile(u("\.fa-(.*):before,?"))
@@ -634,43 +633,63 @@ if __name__ == '__main__':
 
     parser.add_argument("icon", type=str, nargs="+",
             help="The name(s) of the icon(s) to export (or \"ALL\" for all icons)")
+
     parser.add_argument("--color", type=str, default="black",
             help="Color (HTML color code or name, default: black)")
+
     parser.add_argument("--filename", type=str,
             help="The name of the output file (it must end with \".png\"). If " +
             "all files are exported, it is used as a prefix.")
+
     parser.add_argument("--font", type=str, default="fontawesome-webfont.ttf",
             help="Font file to use (default: fontawesome-webfont.ttf)")
+
     parser.add_argument("--css", type=str, default="", action=LoadCSSAction,
             help="Path to the CSS file defining icon names (instead of the " +
             "predefined list)")
+
     parser.add_argument("--list", nargs=0, action=ListAction,
             help="List available icon names and exit")
+
     parser.add_argument("--list-update", nargs=0, action=ListUpdateAction,
             help=argparse.SUPPRESS)
-    parser.add_argument("--size", type=int, default=16,
+
+    parser.add_argument("--size", type=int, default=64,
             help="Icon size in pixels (default: 16)")
+
+    parser.add_argument("--regex", action='store_true',
+            help="Use regex list for PNG export (default: True)")
+
+    parser.add_argument("--suffux", type=str, default=".png",
+            help="Add file suffux")
 
     args = parser.parse_args()
     icon = args.icon
     size = args.size
     font = args.font
     color = args.color
+    regex = args.regex
 
     if args.font:
         if not path.isfile(args.font) or not access(args.font, R_OK):
-            print >> sys.stderr, ("Error: Font file (%s) can't be opened"
-                    % (args.font))
+            print("Error: Font file ({}) can't be opened".format(args.font), file=sys.stderr)
             exit(1)
 
     if args.icon == [ "ALL" ]:
         # Export all icons
         selected_icons = sorted(icons.keys())
+
+    if regex:
+        selected_icons = []
+        for icon_set in icon:
+            for char in re.findall(icon_set, "".join([chr(i) for i in range(0,re.ASCII)])):
+                selected_icons.append(char)
+
     else:
         selected_icons = []
 
         # Icon name was given
-        for icon in args.icon:
+        for icon in args.icon and not regex:
             # Strip the "icon-" prefix, if present
             if icon.startswith("icon-"):
                 icon = icon[5:]
@@ -678,19 +697,20 @@ if __name__ == '__main__':
             if icon in icons:
                 selected_icons.append(icon)
             else:
-                print >> sys.stderr, "Error: Unknown icon name (%s)" % (icon)
+                print("Error: Unknown icon name ({})".format(icon), file=sys.stderr)
                 sys.exit(1)
+
 
     for icon in selected_icons:
         if len(selected_icons) > 1:
             # Exporting multiple icons -- treat the filename option as name prefix
-            filename = (args.filename or "") + icon + ".png"
+            filename = (args.filename or "") + icon + (args.suffux or ".png")
         else:
             # Exporting one icon
             if args.filename:
                 filename = args.filename
             else:
-                filename = icon + ".png"
+                filename = icon + (args.suffux or ".png")
 
         print("Exporting icon \"%s\" as %s (%ix%i pixels)" %
                 (icon, filename, size, size))
