@@ -660,7 +660,7 @@ if __name__ == '__main__':
     parser.add_argument("--regex", action='store_true',
             help="Use regex list for PNG export (default: True)")
 
-    parser.add_argument("--suffux", type=str, default=".png",
+    parser.add_argument("--suffix", type=str, default=".png",
             help="Add file suffux")
 
     args = parser.parse_args()
@@ -689,13 +689,17 @@ if __name__ == '__main__':
         selected_icons = []
 
         # Icon name was given
-        for icon in args.icon and not regex:
+        for icon in args.icon:
             # Strip the "icon-" prefix, if present
             if icon.startswith("icon-"):
                 icon = icon[5:]
-
-            if icon in icons:
+            print(icon)
+            if icon.startswith(u("\\u")):
                 selected_icons.append(icon)
+
+            elif icon in icons:
+                selected_icons.append(icon)
+
             else:
                 print("Error: Unknown icon name ({})".format(icon), file=sys.stderr)
                 sys.exit(1)
@@ -704,13 +708,13 @@ if __name__ == '__main__':
     for icon in selected_icons:
         if len(selected_icons) > 1:
             # Exporting multiple icons -- treat the filename option as name prefix
-            filename = (args.filename or "") + icon + (args.suffux or ".png")
+            filename = (args.filename or "") + icon + (args.suffix or ".png")
         else:
             # Exporting one icon
             if args.filename:
-                filename = args.filename
+                filename = args.filename + (args.suffix or ".png")
             else:
-                filename = icon + (args.suffux or ".png")
+                filename = icon + (args.suffix or ".png")
 
         print("Exporting icon \"%s\" as %s (%ix%i pixels)" %
                 (icon, filename, size, size))
